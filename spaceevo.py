@@ -7,6 +7,7 @@ INITIAL_ALIEN_COUNT = 10
 MISSILE_WIDTH = 26
 PLAYER_SPEED = 5
 PLAYER_MISSILE_SPEED = -3
+PLAYER_SHOT_DELAY = 400
 ENEMY_MISSILE_SPEED = 2
 ENEMY_SPEED = 1
 
@@ -71,6 +72,7 @@ backdrop = image.load('data/sevobackground.bmp')
 
 enemies = []
 playerMissiles = []
+lastShotFired = time.get_ticks()
 
 x = 0
 for count in range(INITIAL_ALIEN_COUNT):
@@ -79,26 +81,26 @@ for count in range(INITIAL_ALIEN_COUNT):
 
 player = Player(GAME_WIDTH/2, 500, 'data/player.bmp')
 ourmissile = PlayerMissile(0, GAME_HEIGHT, 'data/player_missile.bmp')
-enemymissile = Sprite(0, GAME_HEIGHT, 'data/alien_missile.bmp')
+enemymissile = AlienMissile(0, GAME_HEIGHT, 'data/alien_missile.bmp')
 
 while True:
     screen.blit(backdrop, (0, 0))
 
-  # Initialize and render aliens
+    # Move and render aliens
     for count in range(len(enemies)):
         enemies[count].x += ENEMY_SPEED
         enemies[count].render()
+
+    # Move and render player missiles
+    for count in range(len(playerMissiles)):
+        playerMissiles[count].y += PLAYER_MISSILE_SPEED
+        playerMissiles[count].render()
 
   # Aliens reach left or right edge
     if enemies[len(enemies)-1].x > GAME_WIDTH or enemies[0].x < 10:
         ENEMY_SPEED = -ENEMY_SPEED
         for count in range(len(enemies)):
             enemies[count].y += 5
-
-  # Render player missile if on screen
-    if ourmissile.y < GAME_HEIGHT-1 and ourmissile.y > 0:
-        ourmissile.render()
-        ourmissile.y += PLAYER_MISSILE_SPEED
 
   # Render enemy missile if on screen
     if enemymissile.y >= GAME_HEIGHT and len(enemies) > 0:
@@ -107,7 +109,8 @@ while True:
 
   # Player is hit
     if collisionDetection(player.x, player.y, enemymissile.x, enemymissile.y):
-        quit = 1
+        pygame.quit()
+        sys.exit()
 
   # Alien is hit
     for count in range(0, len(enemies)):
@@ -117,7 +120,8 @@ while True:
 
   # Out of Aliens
     if len(enemies) == 0:
-        quit = 1
+        pygame.quit()
+        sys.exit()
 
   # Handle keyboard input
     for ourevent in event.get():
@@ -130,13 +134,15 @@ while True:
         if ourevent.key == K_LEFT and player.x > 10:
             player.x -= PLAYER_SPEED
         if ourevent.key == K_SPACE:
-            ourmissile.x = player.x
-            ourmissile.y = player.y
+            if time.get_ticks() > lastShotFired + PLAYER_SHOT_DELAY:
+                lastShotFired = time.get_ticks()
+                playerMissiles.append(PlayerMissile(player.x, player.y, 'data/player_missile.bmp'))
 
-  enemymissile.render()
-  enemymissile.y += ENEMY_MISSILE_SPEED
 
-  player.render()
+    enemymissile.render()
+    enemymissile.y += ENEMY_MISSILE_SPEED
 
-  display.update()
-  time.delay(5)
+    player.render()
+
+    display.update()
+    time.delay(5)
