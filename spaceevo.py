@@ -12,12 +12,19 @@ PLAYER_SHOT_DELAY = 0.35
 ENEMY_MISSILE_SPEED = 10
 ENEMY_SPEED = 5
 
-class Player:
+class Sprite:
     def __init__(self, xpos, ypos, filename):
         self.x = xpos
         self.y = ypos
         self.bitmap = pygame.image.load(filename)
         self.bitmap.set_colorkey((255, 0, 128))
+
+    def render(self):
+        screen.blit(self.bitmap, (self.x, self.y))
+
+class Player(Sprite):
+    def __init__(self, xpos, ypos, filename):
+        Sprite.__init__(self, xpos, ypos, filename)
 
     def controls(self):
         global lastShotFired
@@ -30,49 +37,29 @@ class Player:
                 self.x += PLAYER_SPEED
         elif (keys[K_SPACE]):
             if(time.time() > lastShotFired + PLAYER_SHOT_DELAY):
-                lastShotFired = time.time()
                 player.shoot()
 
     def shoot(self):
+        global lastShotFired
+        lastShotFired = time.time()
         playerMissiles.append(PlayerMissile(player.x, player.y, 'data/player_missile.bmp'))
 
-    def render(self):
-        screen.blit(self.bitmap, (self.x, self.y))
-
-class PlayerMissile:
+class Alien(Sprite):
     def __init__(self, xpos, ypos, filename):
-        self.x = xpos
-        self.y = ypos
+        Sprite.__init__(self, xpos, ypos, filename)
+
+class PlayerMissile(Sprite):
+    def __init__(self, xpos, ypos, filename):
+        Sprite.__init__(self, xpos, ypos, filename)
         self.outOfBounds = False
-        self.bitmap = pygame.image.load(filename)
-        self.bitmap.set_colorkey((255, 0, 128))
 
     def update(self):
         if self.y < 0:
             self.outOfBounds = True
 
-    def render(self):
-        screen.blit(self.bitmap, (self.x, self.y))
-
-class Alien:
+class AlienMissile(Sprite):
     def __init__(self, xpos, ypos, filename):
-        self.x = xpos
-        self.y = ypos
-        self.bitmap = pygame.image.load(filename)
-        self.bitmap.set_colorkey((255, 0, 128))
-
-    def render(self):
-        screen.blit(self.bitmap, (self.x, self.y))
-
-class AlienMissile:
-    def __init__(self, xpos, ypos, filename):
-        self.x = xpos
-        self.y = ypos
-        self.bitmap = pygame.image.load(filename)
-        self.bitmap.set_colorkey((255, 0, 128))
-
-    def render(self):
-        screen.blit(self.bitmap, (self.x, self.y))
+        Sprite.__init__(self, xpos, ypos, filename)
 
 def collisionDetection(s1_x, s1_y, s2_x, s2_y):
     if (s1_x > s2_x - MISSILE_WIDTH) and (s1_x < s2_x + MISSILE_WIDTH) and (s1_y > s2_y - MISSILE_WIDTH) and (s1_y < s2_y + MISSILE_WIDTH):
@@ -81,6 +68,7 @@ def collisionDetection(s1_x, s1_y, s2_x, s2_y):
         return 0
 
 # --- MAIN ---
+
 global lastShotFired
 pygame.init()
 FPSCLOCK = pygame.time.Clock()
@@ -95,7 +83,7 @@ playerMissiles = []
 
 x = 0
 for count in range(INITIAL_ALIEN_COUNT):
-    enemies.append(Alien(50 * x + 50, 50, 'data/alien_1.bmp'))
+    enemies.append(Alien((50 * x + 50), 50, 'data/alien_1.bmp'))
     x += 1
 
 player = Player(GAME_WIDTH/2, 500, 'data/player.bmp')
@@ -104,7 +92,7 @@ enemymissile = AlienMissile(0, GAME_HEIGHT, 'data/alien_missile.bmp')
 while True:
     screen.blit(backdrop, (0, 0))
 
-    # --- DRAW ---
+    # --- DRAWS ---
 
     for count in range(len(enemies)):
         enemies[count].x += ENEMY_SPEED
