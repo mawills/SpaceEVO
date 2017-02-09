@@ -25,6 +25,7 @@ class Sprite:
 class Player(Sprite):
     def __init__(self, xpos, ypos, filename):
         Sprite.__init__(self, xpos, ypos, filename)
+        self.isDamaged = False
 
     def controls(self):
         global lastShotFired
@@ -62,7 +63,10 @@ class AlienMissile(Sprite):
         Sprite.__init__(self, xpos, ypos, filename)
 
 def collisionDetection(s1_x, s1_y, s2_x, s2_y):
-    if (s1_x > s2_x - MISSILE_WIDTH) and (s1_x < s2_x + MISSILE_WIDTH) and (s1_y > s2_y - MISSILE_WIDTH) and (s1_y < s2_y + MISSILE_WIDTH):
+    if ((s1_x > s2_x - MISSILE_WIDTH) and
+        (s1_x < s2_x + MISSILE_WIDTH) and
+        (s1_y > s2_y - MISSILE_WIDTH) and
+        (s1_y < s2_y + MISSILE_WIDTH)):
         return 1
     else:
         return 0
@@ -77,6 +81,7 @@ pygame.key.set_repeat(1, 1)
 pygame.display.set_caption('SpaceEVO')
 backdrop = pygame.image.load('data/sevobackground.bmp')
 lastShotFired = time.time()
+timeSincePlayerWasHit = time.time()
 
 enemies = []
 playerMissiles = []
@@ -114,8 +119,13 @@ while True:
     # --- EVENTS ---
 
     if collisionDetection(player.x, player.y, enemymissile.x, enemymissile.y):
-        quit()
-        sys.exit()
+        print(player.isDamaged)
+        if (player.isDamaged == False):
+            player = Player(player.x, player.y, 'data/damagedplayer.bmp')
+            player.isDamaged = True
+        elif (player.isDamaged == True) and (time.time() > timeSincePlayerWasHit - 2):
+            quit()
+            sys.exit()
 
     if len(enemies) == 0:
         pygame.quit()
@@ -131,7 +141,6 @@ while True:
     for m in playerMissiles:
         m.update()
     playerMissiles = [m for m in playerMissiles if not m.outOfBounds]
-
 
     enemymissile.render()
     enemymissile.y += ENEMY_MISSILE_SPEED
