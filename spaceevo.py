@@ -4,17 +4,21 @@ from pygame.locals import *
 FPS = 60
 GAME_WIDTH = 800
 GAME_HEIGHT = 600
-INITIAL_ALIEN_COUNT = 10
-MISSILE_WIDTH = 26
-PLAYER_SPEED = 8
-PLAYER_MISSILE_SPEED = -15
-PLAYER_SHOT_DELAY = 0.35
-ENEMY_MISSILE_SPEED = 10
-MAX_ENEMY_SPEED = 3
-ALIEN_Y_DIMENSION = 400
-ALIEN_HEIGHT = 55
+PLAYER_HEIGHT = 55
 PLAYER_WIDTH = 55
+ALIEN_HEIGHT = 55
 ALIEN_WIDTH = 55
+MISSILE_WIDTH = 26
+ALIEN_Y_DIMENSION = 400
+INITIAL_ALIEN_COUNT = 10
+PLAYER_SPEED = 7
+MAX_ENEMY_SPEED = 3
+PLAYER_MISSILE_SPEED = -6
+ENEMY_MISSILE_SPEED = 6
+PLAYER_SHOT_FREQUENCY = 0.35
+ALIEN_ATTACK_FREQUENCY = 60
+START_GAME_ATTACK_DELAY = 1.5
+MAX_ALIEN_AGE = 50
 
 class Sprite:
     def __init__(self, xpos, ypos, filename):
@@ -35,29 +39,33 @@ class Player(Sprite):
         global lastShotFired
         keys = pygame.key.get_pressed()
         if (keys[K_LEFT] or keys[K_a]):
-            if self.x > PLAYER_WIDTH:
+            if self.x > 0:
                 self.x -= PLAYER_SPEED
         elif (keys[K_RIGHT] or keys[K_d]):
-            if self.x < GAME_WIDTH:
+            if self.x < GAME_WIDTH - PLAYER_WIDTH:
                 self.x += PLAYER_SPEED
         elif (keys[K_SPACE]):
-            if(time.time() > lastShotFired + PLAYER_SHOT_DELAY):
+            if(time.time() > lastShotFired + PLAYER_SHOT_FREQUENCY):
                 player.shoot()
 
     def shoot(self):
         global lastShotFired
         lastShotFired = time.time()
-        playerMissiles.append(PlayerMissile(player.x, player.y, 'data/player_missile.bmp'))
+        playerMissiles.append(Missile(player.x, player.y, 'data/player_missile.bmp'))
 
 class Alien(Sprite):
     def __init__(self, xpos, ypos, filename):
         Sprite.__init__(self, xpos, ypos, filename)
         self.alive = True
         self.canMove = random.choice([True, False])
+        self.canAttack = random.choice([True, False])
+        self.attackDice = None
         self.dx = random.randint(-MAX_ENEMY_SPEED, MAX_ENEMY_SPEED)
         self.dy = self.dx
         self.width = ALIEN_WIDTH
         self.height = ALIEN_HEIGHT
+        self.timeCreated = time.time()
+        self.age = None
 
     def movement(self):
         if (self.canMove == True):
@@ -68,18 +76,28 @@ class Alien(Sprite):
             self.x += self.dx
             self.y += self.dy
 
-class PlayerMissile(Sprite):
+    def shoot(self):
+        enemyMissiles.append(Missile(self.x, self.y, 'data/alien_missile.bmp'))
+
+    def update(self):
+        self.age = time.time() - self.timeCreated
+        self.attackDice = random.randint(0, ALIEN_ATTACK_FREQUENCY)
+        if (self.age >= MAX_ALIEN_AGE):
+            self.alive = False
+        if self.canAttack:
+            self.bitmap = pygame.image.load('data/alien_attack.bmp')
+            self.bitmap.set_colorkey((255, 0, 128))
+            if (self.attackDice == ALIEN_ATTACK_FREQUENCY) and (self.age > START_GAME_ATTACK_DELAY):
+                self.shoot()
+
+class Missile(Sprite):
     def __init__(self, xpos, ypos, filename):
         Sprite.__init__(self, xpos, ypos, filename)
         self.outOfBounds = False
 
-    def update(self):
+    def checkBounds(self):
         if self.y < 0:
             self.outOfBounds = True
-
-class AlienMissile(Sprite):
-    def __init__(self, xpos, ypos, filename):
-        Sprite.__init__(self, xpos, ypos, filename)
 
 def collisionDetection(s1_x, s1_y, s2_x, s2_y):
     if ((s1_x > s2_x - MISSILE_WIDTH) and
@@ -90,9 +108,11 @@ def collisionDetection(s1_x, s1_y, s2_x, s2_y):
     else:
         return 0
 
+
 # --- MAIN ---
 
 global lastShotFired
+
 pygame.init()
 FPSCLOCK = pygame.time.Clock()
 screen = pygame.display.set_mode((GAME_WIDTH,GAME_HEIGHT))
@@ -101,22 +121,24 @@ pygame.display.set_caption('SpaceEVO')
 backdrop = pygame.image.load('data/sevobackground.bmp')
 lastShotFired = time.time()
 timeSincePlayerWasHit = time.time()
+mothership = Sprite(0, 0, 'data/mothership.bmp')
 
 enemies = []
 playerMissiles = []
+enemyMissiles = []
 
 x = 0
 for count in range(INITIAL_ALIEN_COUNT):
     enemies.append(Alien(random.randint(ALIEN_WIDTH, GAME_WIDTH - ALIEN_WIDTH),
                          random.randint(ALIEN_HEIGHT, ALIEN_Y_DIMENSION),
-                         'data/alien_1.bmp'))
+                         'data/alien.bmp'))
     x += 1
 
 player = Player(GAME_WIDTH/2, 500, 'data/player.bmp')
-enemymissile = AlienMissile(0, GAME_HEIGHT, 'data/alien_missile.bmp')
 
 while True:
     screen.blit(backdrop, (0, 0))
+    mothership.render()
 
     # --- DRAWS ---
 
@@ -128,19 +150,21 @@ while True:
         playerMissiles[count].y += PLAYER_MISSILE_SPEED
         playerMissiles[count].render()
 
-    if enemymissile.y >= GAME_HEIGHT and len(enemies) > 0:
-        enemymissile.x = enemies[random.randint(0, len(enemies)-1)].x
-        enemymissile.y = enemies[0].y
+    for count in range(len(enemyMissiles)):
+        enemyMissiles[count].y += ENEMY_MISSILE_SPEED
+        enemyMissiles[count].render()
 
     # --- EVENTS ---
 
-    if collisionDetection(player.x, player.y, enemymissile.x, enemymissile.y):
-        if (player.isDamaged == False):
-            player = Player(player.x, player.y, 'data/damagedplayer.bmp')
-            player.isDamaged = True
-        elif (player.isDamaged == True) and (time.time() > timeSincePlayerWasHit - 2):
-            quit()
-            sys.exit()
+    for m in enemyMissiles:
+        if collisionDetection(player.x, player.y, m.x, m.y):
+            if (player.isDamaged == False):
+                player = Player(player.x, player.y, 'data/damagedplayer.bmp')
+                player.isDamaged = True
+                timeSincePlayerWasHit = time.time()
+            elif (player.isDamaged == True) and (time.time() > timeSincePlayerWasHit + 2):
+                quit()
+                sys.exit()
 
     for m in playerMissiles:
         for e in enemies:
@@ -160,16 +184,22 @@ while True:
     # --- UPDATES ---
 
     for m in playerMissiles:
-        m.update()
+        m.checkBounds()
     playerMissiles = [m for m in playerMissiles if not m.outOfBounds]
+
+    for m in enemyMissiles:
+        m.checkBounds()
+    enemyMissiles = [m for m in enemyMissiles if not m.outOfBounds]
 
     enemies = [e for e in enemies if e.alive]
 
-    enemymissile.render()
-    enemymissile.y += ENEMY_MISSILE_SPEED
+    for e in enemies:
+        e.update()
 
     player.render()
     player.controls()
+
+
 
     pygame.display.update()
     FPSCLOCK.tick(FPS)
