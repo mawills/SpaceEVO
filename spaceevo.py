@@ -52,6 +52,7 @@ class Player(Sprite):
 class Alien(Sprite):
     def __init__(self, xpos, ypos, filename):
         Sprite.__init__(self, xpos, ypos, filename)
+        self.alive = True
         self.canMove = random.choice([True, False])
         self.dx = random.randint(-MAX_ENEMY_SPEED, MAX_ENEMY_SPEED)
         self.dy = self.dx
@@ -141,6 +142,12 @@ while True:
             quit()
             sys.exit()
 
+    for m in playerMissiles:
+        for e in enemies:
+            if collisionDetection(m.x, m.y, e.x, e.y):
+                m.outOfBounds = True
+                e.alive = False
+
     if len(enemies) == 0:
         pygame.quit()
         sys.exit()
@@ -155,6 +162,8 @@ while True:
     for m in playerMissiles:
         m.update()
     playerMissiles = [m for m in playerMissiles if not m.outOfBounds]
+
+    enemies = [e for e in enemies if e.alive]
 
     enemymissile.render()
     enemymissile.y += ENEMY_MISSILE_SPEED
