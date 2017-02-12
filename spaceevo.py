@@ -10,7 +10,11 @@ PLAYER_SPEED = 8
 PLAYER_MISSILE_SPEED = -15
 PLAYER_SHOT_DELAY = 0.35
 ENEMY_MISSILE_SPEED = 10
-ENEMY_SPEED = 5
+MAX_ENEMY_SPEED = 3
+ALIEN_Y_DIMENSION = 400
+ALIEN_HEIGHT = 55
+PLAYER_WIDTH = 55
+ALIEN_WIDTH = 55
 
 class Sprite:
     def __init__(self, xpos, ypos, filename):
@@ -31,7 +35,7 @@ class Player(Sprite):
         global lastShotFired
         keys = pygame.key.get_pressed()
         if (keys[K_LEFT] or keys[K_a]):
-            if self.x > 10:
+            if self.x > PLAYER_WIDTH:
                 self.x -= PLAYER_SPEED
         elif (keys[K_RIGHT] or keys[K_d]):
             if self.x < GAME_WIDTH:
@@ -48,6 +52,20 @@ class Player(Sprite):
 class Alien(Sprite):
     def __init__(self, xpos, ypos, filename):
         Sprite.__init__(self, xpos, ypos, filename)
+        self.canMove = random.choice([True, False])
+        self.dx = random.randint(-MAX_ENEMY_SPEED, MAX_ENEMY_SPEED)
+        self.dy = self.dx
+        self.width = ALIEN_WIDTH
+        self.height = ALIEN_HEIGHT
+
+    def movement(self):
+        if (self.canMove == True):
+            if (self.x + self.dx > GAME_WIDTH - self.width) or (self.x + self.dx < self.width):
+                self.dx = -self.dx
+            if(self.y + self.dy < self.width) or (self.y + self.dy > ALIEN_Y_DIMENSION):
+                self.dy = -self.dy
+            self.x += self.dx
+            self.y += self.dy
 
 class PlayerMissile(Sprite):
     def __init__(self, xpos, ypos, filename):
@@ -88,7 +106,9 @@ playerMissiles = []
 
 x = 0
 for count in range(INITIAL_ALIEN_COUNT):
-    enemies.append(Alien((50 * x + 50), 50, 'data/alien_1.bmp'))
+    enemies.append(Alien(random.randint(ALIEN_WIDTH, GAME_WIDTH - ALIEN_WIDTH),
+                         random.randint(ALIEN_HEIGHT, ALIEN_Y_DIMENSION),
+                         'data/alien_1.bmp'))
     x += 1
 
 player = Player(GAME_WIDTH/2, 500, 'data/player.bmp')
@@ -100,13 +120,8 @@ while True:
     # --- DRAWS ---
 
     for count in range(len(enemies)):
-        enemies[count].x += ENEMY_SPEED
+        enemies[count].movement()
         enemies[count].render()
-
-    if enemies[len(enemies)-1].x > GAME_WIDTH or enemies[0].x < 10:
-        ENEMY_SPEED = -ENEMY_SPEED
-        for count in range(len(enemies)):
-            enemies[count].y += 5
 
     for count in range(len(playerMissiles)):
         playerMissiles[count].y += PLAYER_MISSILE_SPEED
@@ -119,7 +134,6 @@ while True:
     # --- EVENTS ---
 
     if collisionDetection(player.x, player.y, enemymissile.x, enemymissile.y):
-        print(player.isDamaged)
         if (player.isDamaged == False):
             player = Player(player.x, player.y, 'data/damagedplayer.bmp')
             player.isDamaged = True
