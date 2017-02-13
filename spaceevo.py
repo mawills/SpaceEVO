@@ -10,7 +10,6 @@ ALIEN_HEIGHT = 55
 ALIEN_WIDTH = 55
 MISSILE_WIDTH = 26
 ALIEN_Y_DIMENSION = 400
-INITIAL_ALIEN_COUNT = 10
 PLAYER_SPEED = 7
 MAX_ENEMY_SPEED = 3
 PLAYER_MISSILE_SPEED = -6
@@ -18,7 +17,9 @@ ENEMY_MISSILE_SPEED = 6
 PLAYER_SHOT_FREQUENCY = 0.35
 ALIEN_ATTACK_FREQUENCY = 60
 START_GAME_ATTACK_DELAY = 1.5
-MAX_ALIEN_AGE = 50
+SPAWN_SIZE = 6
+SPAWN_TIMER = 15
+MAX_ALIEN_AGE = 20
 
 class Sprite:
     def __init__(self, xpos, ypos, filename):
@@ -47,6 +48,9 @@ class Player(Sprite):
         elif (keys[K_SPACE]):
             if(time.time() > lastShotFired + PLAYER_SHOT_FREQUENCY):
                 player.shoot()
+        elif (keys[K_ESCAPE]):
+            pygame.quit()
+            sys.exit()
 
     def shoot(self):
         global lastShotFired
@@ -69,7 +73,7 @@ class Alien(Sprite):
 
     def movement(self):
         if (self.canMove == True):
-            if (self.x + self.dx > GAME_WIDTH - self.width) or (self.x + self.dx < self.width):
+            if (self.x + self.dx > GAME_WIDTH - self.width) or (self.x + self.dx < 0):
                 self.dx = -self.dx
             if(self.y + self.dy < self.width) or (self.y + self.dy > ALIEN_Y_DIMENSION):
                 self.dy = -self.dy
@@ -108,11 +112,31 @@ def collisionDetection(s1_x, s1_y, s2_x, s2_y):
     else:
         return 0
 
+def drawEnemies(enemies):
+    for count in range(len(enemies)):
+        enemies[count].movement()
+        enemies[count].render()
+
+def drawPlayerMissiles(playerMissiles):
+    for count in range(len(playerMissiles)):
+        playerMissiles[count].y += PLAYER_MISSILE_SPEED
+        playerMissiles[count].render()
+
+def drawEnemyMissiles(enemyMissiles):
+    for count in range(len(enemyMissiles)):
+        enemyMissiles[count].y += ENEMY_MISSILE_SPEED
+        enemyMissiles[count].render()
+
+def spawnNewGeneration(enemies, spawnSize):
+    for count in range(SPAWN_SIZE):
+        enemies.append(Alien(random.randint(ALIEN_WIDTH, GAME_WIDTH - ALIEN_WIDTH),
+                             random.randint(ALIEN_HEIGHT, ALIEN_Y_DIMENSION),
+                             'data/alien.bmp'))
+    print(len(enemies))
 
 # --- MAIN ---
 
 global lastShotFired
-
 pygame.init()
 FPSCLOCK = pygame.time.Clock()
 screen = pygame.display.set_mode((GAME_WIDTH,GAME_HEIGHT))
@@ -121,38 +145,27 @@ pygame.display.set_caption('SpaceEVO')
 backdrop = pygame.image.load('data/sevobackground.bmp')
 lastShotFired = time.time()
 timeSincePlayerWasHit = time.time()
+timeSinceLastSpawn = time.time()
 mothership = Sprite(0, 0, 'data/mothership.bmp')
 
 enemies = []
 playerMissiles = []
 enemyMissiles = []
 
-x = 0
-for count in range(INITIAL_ALIEN_COUNT):
-    enemies.append(Alien(random.randint(ALIEN_WIDTH, GAME_WIDTH - ALIEN_WIDTH),
-                         random.randint(ALIEN_HEIGHT, ALIEN_Y_DIMENSION),
-                         'data/alien.bmp'))
-    x += 1
+spawnNewGeneration(enemies, SPAWN_SIZE)
 
 player = Player(GAME_WIDTH/2, 500, 'data/player.bmp')
 
 while True:
-    screen.blit(backdrop, (0, 0))
-    mothership.render()
 
     # --- DRAWS ---
 
-    for count in range(len(enemies)):
-        enemies[count].movement()
-        enemies[count].render()
-
-    for count in range(len(playerMissiles)):
-        playerMissiles[count].y += PLAYER_MISSILE_SPEED
-        playerMissiles[count].render()
-
-    for count in range(len(enemyMissiles)):
-        enemyMissiles[count].y += ENEMY_MISSILE_SPEED
-        enemyMissiles[count].render()
+    screen.blit(backdrop, (0, 0))
+    mothership.render()
+    drawEnemies(enemies)
+    drawPlayerMissiles(playerMissiles)
+    drawEnemyMissiles(enemyMissiles)
+    player.render()
 
     # --- EVENTS ---
 
@@ -162,7 +175,7 @@ while True:
                 player = Player(player.x, player.y, 'data/damagedplayer.bmp')
                 player.isDamaged = True
                 timeSincePlayerWasHit = time.time()
-            elif (player.isDamaged == True) and (time.time() > timeSincePlayerWasHit + 2):
+            elif (player.isDamaged == True) and (time.time() > timeSincePlayerWasHit + 1):
                 quit()
                 sys.exit()
 
@@ -171,10 +184,6 @@ while True:
             if collisionDetection(m.x, m.y, e.x, e.y):
                 m.outOfBounds = True
                 e.alive = False
-
-    if len(enemies) == 0:
-        pygame.quit()
-        sys.exit()
 
     for gameevent in pygame.event.get():
         if gameevent.type == QUIT:
@@ -185,21 +194,21 @@ while True:
 
     for m in playerMissiles:
         m.checkBounds()
-    playerMissiles = [m for m in playerMissiles if not m.outOfBounds]
-
     for m in enemyMissiles:
         m.checkBounds()
-    enemyMissiles = [m for m in enemyMissiles if not m.outOfBounds]
 
+    if (time.time() > timeSinceLastSpawn + SPAWN_TIMER):
+        timeSinceLastSpawn = time.time()
+        spawnNewGeneration(enemies, SPAWN_SIZE)
+
+    playerMissiles = [m for m in playerMissiles if not m.outOfBounds]
+    enemyMissiles = [m for m in enemyMissiles if not m.outOfBounds]
     enemies = [e for e in enemies if e.alive]
 
     for e in enemies:
         e.update()
 
-    player.render()
     player.controls()
-
-
 
     pygame.display.update()
     FPSCLOCK.tick(FPS)
